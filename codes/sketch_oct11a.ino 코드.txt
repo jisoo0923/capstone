@@ -1,0 +1,108 @@
+// Include Library
+#include <I2C_LCD.h>
+
+#include <I2C_16Bit.h>
+#include <I2C_32Bit.h>
+#include <I2C_8Bit.h>
+
+#include <HX24.h>
+#include <SegmentLCD.h>
+
+
+// define pin 
+#define relay 2 
+
+// Global variable
+unsigned long Weight = 0;
+char msg[16]={0x01};
+
+// 보정 상수 초기화
+float calibration_factor = 1.0;  // 필요에 따라 조정 필요. 여기서는 기본 값 1.0
+
+void setup()
+{
+	unsigned char i;
+        
+	// Set pinmode 
+        pinMode(relay, OUTPUT);
+        digitalWrite(relay, LOW);
+        pinMode(SCL, OUTPUT);
+        pinMode(SDA, OUTPUT);
+
+    // Initialize libraries
+    Init_HX24();  // Loadsell Library // 로드셀 초기화
+    Serial.println("HX24 Initialized");
+    // 캘리브레이션 설정 (필요에 따라 보정 상수를 조정)
+    calibration_factor = 1.15;  // 여러 번 시도하면서 기본값에서 변경했음. 현재 해당 코드에서는 이 값이 커지면 출력되는 무게의 수치가 커짐.
+    
+    Init_1621();  // Segment LCD Library
+    Serial.println("1621 LCD Initialized");
+    
+    initial_lcd();  // 1602 I2C LCD Library
+    Serial.println("1602 I2C LCD Initialized");
+
+        // Segment LCD input characters
+        for( i = 0 ; i < 6 ; i++ ) Write_1621_data(5-i,Table_Hello[i]); //HELLO
+        Serial.println("HELLO displayed on Segment LCD");
+        Serial.println("Setup completed.");
+
+	// 1602 I2C LCD input characters
+        disp_char(1,1, " *Loadsell Kit* ");
+        disp_char(2,1, " ** smartkit ** ");
+              
+	delay(1000);
+	Serial.begin(9600);
+  Serial.println("Before transfer...");  // 디버깅 메시지 추가
+        transfer(0x01);
+        Serial.println("After transfer, before Get_M...");
+	Get_M();		//Get M
+  Serial.println("After Get_M...");
+}
+
+void loop()
+{
+	unsigned char i;
+
+  Serial.println("Before reading weight...");
+  
+  // 무게 측정 및 보정 적용
+  // 원래 측정된 값
+	Weight = Get_Weight();	//Calculated on the weight of the weight sensor // 로드셀 측정값(무게)을 읽는 부분
+  Weight = Weight * calibration_factor; // 보정 상수를 적용하여 실제 값을 맞춤
+
+  // 무게 출력
+  Serial.print("Weight: ");
+  Serial.print(Weight);	
+	Serial.println(" g\r\n");
+        
+	// Relay work
+        if(Weight >= 100 && Flag_Error == 0) digitalWrite(relay, HIGH);
+        else if(Weight < 100 && Flag_Error == 0) digitalWrite(relay, LOW);
+        
+
+        	
+	if(Flag_Error == 0)
+	{
+		Write_1621_data(5,0x00);				//Not Displayed
+		Write_1621_data(4,0x00);				
+		Write_1621_data(3,num[Weight/1000]);				
+		Write_1621_data(2,num[Weight%1000/100]|0x80);		//Plus a decimal point
+		Write_1621_data(1,num[Weight%100/10]);
+		Write_1621_data(0,num[Weight%10]);
+
+                disp_char(1,1,"  <*LOAD SELL*> ");
+                sprintf(msg,"%12d g  ", Weight);
+                disp_char(2,1,msg);
+	}
+	else
+	{
+		for( i = 0 ; i < 6 ; i++ )
+		{
+			Write_1621_data(5-i,Table_Error[i]);				//Error
+		}
+                disp_char(1,1,"  <*LOAD SELL*> ");
+                disp_char(2,1,"  E  R  R  O  R ");	
+	}
+
+	delay(10000);				//Delay 10.0s.  delay(500)인경우 0.5초
+}
