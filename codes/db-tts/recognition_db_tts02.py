@@ -6,6 +6,10 @@ import json
 
 from db_tts import DBData
 
+# 데이터 파싱 과정에서 디버깅을 위한 문자열 출력 삭제
+# 객체인식 후 tts음성 안내가 끝나면 자동 종료 코드 추가
+# 객체인식 결과를 이미지로 저장하는 코드 추가
+
 # YOLO 모델 불러오기 함수
 def load_yolo_model(model_path):
     return YOLO(model_path)
@@ -147,6 +151,11 @@ def detect_and_announce(server_url, model_path):
                 # 제품 정보를 음성으로 출력
                 speak_product_info(product)
 
+                # 객체가 인식되었으므로 프레임을 이미지로 저장
+                output_filename = f'detected_{class_name}_{conf:.2f}.jpg'
+                cv2.imwrite(output_filename, frame)
+                print(f"인식된 객체 이미지 저장: {output_filename}")
+
                 object_detected = True  # 객체가 감지되었음을 표시
 
                 # 객체를 감지한 후 반복문 종료
@@ -170,7 +179,6 @@ def detect_and_announce(server_url, model_path):
     # 자원 해제
     cap.release()
     cv2.destroyAllWindows()
-
 
 # 메인 함수
 if __name__ == "__main__":
