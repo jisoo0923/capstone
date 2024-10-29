@@ -3,13 +3,32 @@ from ultralytics import YOLO
 import requests
 import pyttsx3
 import json
-from db_tts import DBData
+
+# DBData 클래스 정의
+class DBData:
+    def __init__(self):
+        self.label = "unknown"
+        self.name = "unknown"
+        self.maker = "unknown"
+        self.recipe = "unknown"
+
+    def set_member_label(self, label):
+        self.label = label
+
+    def set_member_name(self, name):
+        self.name = name
+
+    def set_member_maker(self, maker):
+        self.maker = maker
+
+    def set_member_recipe(self, recipe):
+        self.recipe = recipe
 
 # 1. 모델 로딩
 def load_model(model_path):
     return YOLO(model_path)
 
-# 2. 카메라 초기화
+# 2. 내장 카메라 초기화
 def initialize_camera():
     return cv2.VideoCapture(0)
 
@@ -26,7 +45,7 @@ def fetch_data_from_server(server_url):
         print("서버에서 데이터를 가져오지 못했습니다.")
         return None
 
-# 4. JSON 데이터를 파싱하여 제품 데이터 리스트에 저장
+# 4. JSON 데이터를 파싱하여 리스트에 저장
 def parse_json_data(json_data):
     db_list = []
     if isinstance(json_data, list):
@@ -53,7 +72,7 @@ def find_product_by_label(db_list, label):
 def detect_objects(model, frame):
     return model(frame)
 
-# 7. 박스와 라벨 그리기
+# 7. 박스와 라벨 프레임 그리기
 def draw_boxes_and_labels(frame, results, class_names):
     for result in results:
         for box in result.boxes:
@@ -75,12 +94,13 @@ def speak_product_info(product, speed=200):
     engine.say(text)
     engine.runAndWait()
 
-# 9. 카메라 통한 실시간 객체 감지 실행
+# 9. 실시간 객체 감지 실행
 def run_detection(server_url, model_path, class_names):
     model = load_model(model_path)
     cap = initialize_camera()
     json_data = fetch_data_from_server(server_url)
     db_list = parse_json_data(json_data)
+    object_detected = False
 
     while cap.isOpened():
         ret, frame = cap.read()
@@ -94,15 +114,37 @@ def run_detection(server_url, model_path, class_names):
         for result in results:
             for box in result.boxes:
                 label = int(box.cls[0])
+                conf = box.conf[0]  # 신뢰도 값 가져와서 정의
                 class_name = class_names[label] if label < len(class_names) else f'Unknown({label})'
                 product = find_product_by_label(db_list, class_name)
+
+                # 제품 정보를 음성으로 출력
                 speak_product_info(product)
 
-        cv2.imshow('컵라면 인식', frame)
+                # 객체가 인식 후 프레임을 이미지로 저장
+                output_filename = f'detected_{class_name}_{conf:.2f}.jpg'
+                cv2.imwrite(output_filename, frame)
+                print(f"인식된 객체 이미지 저장: {output_filename}")
 
-        if cv2.waitKey(1) & 0xFF in [ord('q'), 27]:  # 27: 'ESC'키의 아스키 코드
+                object_detected = True
+
+                # 객체를 감지 후 반복문 종료
+                break
+
+            if object_detected:
+                break
+
+        # 객체 감지 후 종료
+        if object_detected:
+            print("객체를 인식했습니다. 프로그램을 종료합니다.")
             break
 
+        # 결과 프레임 화면에 표시
+        cv2.imshow('컵라면 인식', frame)
+
+        # 'q' 키 또는 'ESC' 키를 누르면 종료
+        if cv2.waitKey(1) & 0xFF in [ord('q'), 27]:
+            break
 
     cap.release()
     cv2.destroyAllWindows()
