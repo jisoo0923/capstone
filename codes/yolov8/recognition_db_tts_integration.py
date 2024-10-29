@@ -7,10 +7,10 @@ import json
 # DBData 클래스 정의
 class DBData:
     def __init__(self):
-        self.label = "unknown"
-        self.name = "unknown"
-        self.maker = "unknown"
-        self.recipe = "unknown"
+        self.label = None
+        self.name = None
+        self.maker = None
+        self.recipe = None
 
     def set_member_label(self, label):
         self.label = label
@@ -28,11 +28,11 @@ class DBData:
 def load_model(model_path):
     return YOLO(model_path)
 
-# 2. 내장 카메라 초기화
+# 2. 카메라 초기화
 def initialize_camera():
     return cv2.VideoCapture(0)
 
-# 3. 서버에서 JSON 데이터 가져오기
+# 3. 서버에서 데이터 가져오기
 def fetch_data_from_server(server_url):
     response = requests.get(server_url)
     if response.status_code == 200:
@@ -51,10 +51,10 @@ def parse_json_data(json_data):
     if isinstance(json_data, list):
         for item in json_data:
             dbData = DBData()
-            dbData.set_member_label(item.get('label', 'unknown'))
-            dbData.set_member_name(item.get('name', 'unknown'))
-            dbData.set_member_maker(item.get('maker', 'unknown'))
-            dbData.set_member_recipe(item.get('recipe', 'unknown'))
+            dbData.set_member_label(item.get('label', None))
+            dbData.set_member_name(item.get('name', None))
+            dbData.set_member_maker(item.get('maker', None))
+            dbData.set_member_recipe(item.get('recipe', None))
             db_list.append(dbData)
     return db_list
 
@@ -72,7 +72,7 @@ def find_product_by_label(db_list, label):
 def detect_objects(model, frame):
     return model(frame)
 
-# 7. 박스와 라벨 프레임 그리기
+# 7. 박스와 라벨 그리기
 def draw_boxes_and_labels(frame, results, class_names):
     for result in results:
         for box in result.boxes:
@@ -126,9 +126,9 @@ def run_detection(server_url, model_path, class_names):
                 cv2.imwrite(output_filename, frame)
                 print(f"인식된 객체 이미지 저장: {output_filename}")
 
-                object_detected = True
+                object_detected = True  # 객체가 감지되었음을 표시
 
-                # 객체를 감지 후 반복문 종료
+                # 객체 후 반복문 종료
                 break
 
             if object_detected:
@@ -139,7 +139,7 @@ def run_detection(server_url, model_path, class_names):
             print("객체를 인식했습니다. 프로그램을 종료합니다.")
             break
 
-        # 결과 프레임 화면에 표시
+        # 결과 프레임을 화면에 표시
         cv2.imshow('컵라면 인식', frame)
 
         # 'q' 키 또는 'ESC' 키를 누르면 종료
