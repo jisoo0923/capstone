@@ -5,6 +5,19 @@ import pyttsx3
 import json
 import serial
 import time
+# import winsound
+
+# conf 신뢰도가 90% 이상일 때만 object_detected 변수를 True로 설정 
+# serial.py 코드를 함수화 + 이전 코드와 합치기
+# 라면 객체 인식을 성공하면 무게를 입력(or 특정무게 디폴트 설정 500g)받고
+# 목표 무게 도달 시 삐 소리 후 tts 음성 안내 코드 추가
+
+# YOLO 모델 불러오기 함수
+def load_yolo_model(model_path):
+    return YOLO(model_path)
+
+# 데이터베이스에서 가져온 JSON을 담을 리스트
+db_list = []
 
 # DBData 클래스 정의
 class DBData:
@@ -26,42 +39,43 @@ class DBData:
     def set_member_recipe(self, recipe):
         self.recipe = recipe
 
-# 모델 로딩
-def load_model(model_path):
-    return YOLO(model_path)
-
-# 내장 카메라 초기화
-def initialize_camera():
-    return cv2.VideoCapture(0)
-
-# 서버에서 JSON 데이터 가져오기
+# 서버에서 데이터를 가져오는 함수
 def fetch_data_from_server(server_url):
-    response = requests.get(server_url)
-    if response.status_code == 200:
-        try:
-            return json.loads(response.text)
-        except json.JSONDecodeError:
-            print("JSON 파싱 오류 발생.")
-            return None
-    else:
-        print("서버에서 데이터를 가져오지 못했습니다.")
+    try:
+        response = requests.get(server_url)
+        response.raise_for_status()  # 오류가 있으면 예외 발생
+        return response.text
+    except requests.exceptions.RequestException as e:
+        print(f"서버 요청 중 오류 발생: {e}")
         return None
 
-# JSON 데이터 파싱해서 리스트에 저장
-def parse_json_data(json_data):
-    db_list = []
-    if isinstance(json_data, list):
-        for item in json_data:
-            dbData = DBData()
-            dbData.set_member_label(item.get('label', None))
-            dbData.set_member_name(item.get('name', None))
-            dbData.set_member_maker(item.get('maker', None))
-            dbData.set_member_recipe(item.get('recipe', None))
-            db_list.append(dbData)
-    return db_list
+# JSON 데이터를 파싱하는 함수
+def parse_json_data(json_string):
+    try:
+        data = json.loads(json_string)
+        # print("받은 데이터:", data)  전체 데이터 출력 (디버깅용)
+        
+        if 'test' in data and isinstance(data['test'], list):
+            for item in data['test']:
+                if all(key in item for key in ['rabel', 'name', 'maker', 'recipe']):
+                    dbData = DBData()
+                    dbData.set_member_label(item.get('rabel', 'unknown'))
+                    dbData.set_member_name(item.get('name', 'unknown'))
+                    dbData.set_member_maker(item.get('maker', 'unknown'))
+                    dbData.set_member_recipe(item.get('recipe', 'unknown'))
+                    db_list.append(dbData)
+                    
+                    # print(f"Added data: {item.get('rabel', 'unknown')}, {item.get('name', 'unknown')}, {item.get('maker', 'unknown')}, {item.get('recipe', 'unknown')}")
+            print(f"데이터 파싱 성공: {len(db_list)}개 항목 추가됨")
+        else:
+            print("'test' 키가 없거나 배열이 아닙니다.")
+    except json.JSONDecodeError as e:
+        print(f"JSON 파싱 중 오류 발생: {e}")
+    except Exception as e:
+        print(f"예상치 못한 오류 발생: {e}")
 
-# 라벨에 맞는 데이터 찾기
-def find_product_by_label(db_list, label):
+# 라벨을 기준으로 데이터베이스에서 제품을 찾는 함수
+def find_product_by_label(label):
     if not db_list:
         print("데이터베이스가 비어 있습니다.")
         return None
@@ -70,134 +84,163 @@ def find_product_by_label(db_list, label):
             return product
     return None
 
-# 객체 감지
-def detect_objects(model, frame):
-    return model(frame)
-
-# 바운딩 박스와 라벨 그리기
-def draw_boxes_and_labels(frame, results, class_names):
-    for result in results:
-        for box in result.boxes:
-            x1, y1, x2, y2 = map(int, box.xyxy[0].tolist())
-            conf = box.conf[0]
-            label = int(box.cls[0])
-            class_name = class_names[label] if label < len(class_names) else f'Unknown({label})'
-            cv2.rectangle(frame, (x1, y1), (x2, y2), (255, 0, 0), 2)  # 빨간색으로 변경
-            cv2.putText(frame, f'{class_name} {conf:.2f}', (x1, y1 - 10), cv2.FONT_HERSHEY_SIMPLEX, 0.9, (255, 0, 0), 2)
-
-# 제품 정보를 음성으로 안내
+# 제품 정보를 음성으로 알려주는 함수
 def speak_product_info(product, speed=200):
     engine = pyttsx3.init()
-    engine.setProperty('rate', speed)
-    if product is not None:
+    engine.setProperty('rate', speed)  # 음성 속도 조절
+    if product is not None:  # product가 None이 아닐 때
         text = f"제품명: {product.name}, 제조사: {product.maker}, 조리법: {product.recipe}"
     else:
-        text = "해당 제품을 찾을 수 없습니다."
+        text = "해당 라벨의 제품을 찾을 수 없습니다."  # 오류 메시지
     engine.say(text)
     engine.runAndWait()
 
-# 아두이노 시리얼 통신 초기화
-def initialize_serial(port='/dev/ttyUSB0', baudrate=9600):
+# 시리얼 통신 초기화
+def setup_serial(port='COM9',baudrate=9600):
     try:
-        ser = serial.Serial(port, baudrate, timeout=1)
-        time.sleep(2)
-        return ser
-    except serial.SerialException:
-        print("아두이노와의 시리얼 연결에 실패했습니다. 아두이노가 연결되어 있지 않습니다.")
+        py_serial = serial.Serial(port=port, baudrate=baudrate, timeout=1)
+        print("시리얼 포트 연결 성공")
+        return py_serial
+    except Exception as e:
+        print(f"시리얼 포트 연결 중 오류 발생: {e}")
         return None
+    
+# 목표 무게 도달하면 음성 안내 함수
+def reach_weight():
+    # winsound.Beep(1000, 500)  # 1000 Hz, 0.5초 길이의 삐 소리
+    engine = pyttsx3.init()
+    engine.say("목표 무게에 도달했습니다.")
+    engine.runAndWait()
 
-# 아두이노로 신호 보내기
-def send_signal_to_arduino(ser, signal):
-    if ser is not None:
-        ser.write(signal.encode())
+# 목표 무게 실시간 확인 함수
+def monitor_weight(py_serial, target_weight):
+    while True:
+        if py_serial.in_waiting > 0:
+            weight_data = py_serial.readline().decode().strip()
+            try:
+                current_weight = float(weight_data)
+                print(f"현재 무게: {current_weight} g")
 
-# 아두이노의 응답 읽기
-def read_from_arduino(ser):
-    if ser is not None and ser.in_waiting > 0:
-        data = ser.readline().decode().strip()
-        print(f"아두이노 응답: {data}")
+                if current_weight >= target_weight:
+                    print("목표 무게에 도달했습니다.")
+                    reach_weight()
+                    break
+            except ValueError:
+                print("유효하지 않은 무게 데이터 수신")
+        time.sleep(0.1)
+        
+# 클래스명 리스트 (32개의 클래스명)
+class_names = ['buldak', 'buldak4Cheese', 'buldakCarbo', 'buldakSoup',
+               'buldakSoup2', 'carboSoup', 'carboSoup2', 'cheeseSoup',
+               'cheeseSoup2', 'jinHot', 'jinHotSoup', 'jinMild', 'jinMildSoup',
+               'kaguri', 'kaguriSoup', 'kimchi', 'kimchiSoup', 'kimchiSoup2',
+               'king', 'kingSoup', 'kingSoup2', 'ojingeo', 'ojingeoSoup', 'sesame',
+               'sesameSoup1', 'sesameSoup2', 'sesameSoup3', 'shin', 'shinSoup',
+               'wang', 'wangSoup', 'wangSoup2']
 
-# 실시간 객체 감지 실행
-def run_detection(server_url, model_path, class_names, serial_port='/dev/ttyUSB0', baudrate=9600):
-    model = load_model(model_path)
-    cap = initialize_camera()
-    ser = initialize_serial(serial_port, baudrate)
+# YOLO 모델을 이용해 컵라면 인식 및 제품 정보 출력 함수
+def detect_and_announce(server_url, model_path, serial_port):
+    # YOLO 모델 로드
+    model = load_yolo_model(model_path)
+
+    # DB 서버에서 JSON 데이터 가져오기
     json_data = fetch_data_from_server(server_url)
-    db_list = parse_json_data(json_data)
-    object_detected = False
-    CONFIDENCE_THRESHOLD = 0.8  # 신뢰도 임계값 설정
+
+    if json_data:
+        parse_json_data(json_data)
+
+    # 내장캠 사용
+    cap = cv2.VideoCapture(0)
+
+    if not cap.isOpened():
+        print("카메라를 열 수 없습니다.")
+        return
 
     while cap.isOpened():
-        time.sleep(0.5)  # 인식 속도를 줄이기 위해 0.5초 대기
         ret, frame = cap.read()
+        
         if not ret:
             print("캠에서 사진을 가져올 수 없습니다.")
             break
-
-        results = detect_objects(model, frame)
-        draw_boxes_and_labels(frame, results, class_names)
-
+        
+        # YOLO 모델로 프레임 추론
+        results = model(frame)
+        object_detected = False  # 객체 인식 여부 확인용 변수
+        
         for result in results:
             for box in result.boxes:
-                label = int(box.cls[0])
-                conf = box.conf[0]  # 신뢰도 값 가져와서 정의
+                x1, y1, x2, y2 = map(int, box.xyxy[0].tolist())
+                conf = box.conf[0]
+                label = int(box.cls[0])  # YOLO 모델에서 추출한 라벨
+                
+                if conf < 0.90: # conf 정확도가 90% 미만이면 객체 인식 다시수행
+                    continue
 
-                # 신뢰도가 임계값 이상인 경우에만 제품 정보 출력
-                if conf >= CONFIDENCE_THRESHOLD:
-                    class_name = class_names[label] if label < len(class_names) else f'Unknown({label})'
-                    product = find_product_by_label(db_list, class_name)
+                # 라벨에 맞는 클래스명
+                class_name = class_names[label] if label < len(class_names) else f'Unknown({label})'
+                
+                # 라벨을 사용해 제품 찾기
+                product = find_product_by_label(class_name)
 
-                    # 제품 정보를 음성으로 출력
-                    speak_product_info(product)
+                # 바운딩 박스 그리기
+                cv2.rectangle(frame, (x1, y1), (x2, y2), (0, 255, 0), 2)
+                # 라벨과 신뢰도 표시
+                cv2.putText(frame, f'Label: {class_name}, Conf: {conf:.2f}', (x1, y1 - 10), cv2.FONT_HERSHEY_SIMPLEX, 0.9, (0, 255, 0), 2)
 
-                    # 아두이노 신호 전송
-                    send_signal_to_arduino(ser, '1')
+                # 제품 정보를 음성으로 출력
+                speak_product_info(product)
 
-                    # 아두이노 응답 읽기
-                    read_from_arduino(ser)
+                # 객체가 인식되었으므로 프레임을 이미지로 저장
+                output_filename = f'detected_{class_name}_{conf:.2f}.jpg'
+                cv2.imwrite(output_filename, frame)
+                print(f"인식된 객체 이미지 저장: {output_filename}")
 
-                    # 객체가 인식되었으므로 프레임을 이미지로 저장
-                    output_filename = f'detected_{class_name}_{conf:.2f}.jpg'
-                    cv2.imwrite(output_filename, frame)
-                    print(f"인식된 객체 이미지 저장: {output_filename}")
+                object_detected = True  # 객체가 감지되었음을 표시
 
-                    object_detected = True  # 객체가 감지되었음을 표시
-
-                    # 객체를 감지한 후 반복문 종료
-                    break
+                # 객체를 감지한 후 반복문 종료
+                break
 
             if object_detected:
                 break
 
         # 객체 감지 후 종료
         if object_detected:
-            print("객체를 인식했습니다. 프로그램을 종료합니다.")
-            break
+            print("객체를 인식했습니다.")
+            
+            weight = input("목표 무게를 입력하세요 (g): ") # 무게 입력 받기 or 특정 무게 고정
+            try:
+                target_weight = float(weight)
+                monitor_weight(serial_port, target_weight)
+            except ValueError:
+                print("유효한 무게를 입력하세요.")
 
-        # 결과 프레임 화면에 표시
+            response = input("프로그램을 종료하시겠습니까? (y/n): ")
+            if response.lower() == 'y':
+                print("프로그램을 종료합니다.")
+                break
+            else:
+                print("프로그램을 계속 실행합니다.")
+                object_detected = False
+
+        # 결과 프레임을 화면에 표시
         cv2.imshow('컵라면 인식', frame)
-
-        # 'q' 키 또는 'ESC' 키를 누르면 종료
-        if cv2.waitKey(1) & 0xFF in [ord('q'), 27]:
+        
+        # 'q' 키를 누르면 종료
+        if cv2.waitKey(1) & 0xFF == ord('q'):
             break
 
+        # 인식 속도를 줄이기 위해 대기 시간 추가
+        time.sleep(0.5)  # 0.5초 대기
+
+    # 자원 해제
     cap.release()
-    if ser is not None:
-        ser.close()
     cv2.destroyAllWindows()
 
-# 메인 함수 호출
+# 메인 함수
 if __name__ == "__main__":
+    # DB 서버 URL과 모델 경로 설정
     server_url = "http://43.203.182.200/getjson.php"
     model_path = 'best.pt'
-    class_names = [
-        'buldak', 'buldak4Cheese', 'buldakCarbo', 'buldakSoup',
-        'buldakSoup2', 'carboSoup', 'carboSoup2', 'cheeseSoup',
-        'cheeseSoup2', 'jinHot', 'jinHotSoup', 'jinMild', 'jinMildSoup',
-        'kaguri', 'kaguriSoup', 'kimchi', 'kimchiSoup', 'kimchiSoup2',
-        'king', 'kingSoup', 'kingSoup2', 'ojingeo', 'ojingeoSoup', 'sesame',
-        'sesameSoup1', 'sesameSoup2', 'sesameSoup3', 'shin', 'shinSoup',
-        'wang', 'wangSoup', 'wangSoup2'
-    ]
+    serial_port = setup_serial(port='COM9', baudrate=9600)
 
-    run_detection(server_url, model_path, class_names)
+    # 컵라면 인식, 제품 정보 안내,
