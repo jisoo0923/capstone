@@ -36,15 +36,15 @@ def initialize_camera():
 
 # 서버에서 JSON 데이터 가져오기
 def fetch_data_from_server(server_url):
-    try:
-        response = requests.get(server_url)
-        if response.status_code == 200:
+    response = requests.get(server_url)
+    if response.status_code == 200:
+        try:
             return json.loads(response.text)
-        else:
-            print("서버에서 데이터를 가져오지 못했습니다.")
+        except json.JSONDecodeError:
+            print("JSON 파싱 오류 발생.")
             return None
-    except requests.RequestException as e:
-        print(f"네트워크 오류 발생: {e}")
+    else:
+        print("서버에서 데이터를 가져오지 못했습니다.")
         return None
 
 # JSON 데이터 파싱해서 리스트에 저장
@@ -103,7 +103,7 @@ def initialize_serial(port='/dev/ttyUSB0', baudrate=9600):
         time.sleep(2)
         return ser
     except serial.SerialException:
-        print(f"시리얼 포트를 열 수 없습니다: {port}")
+        print("아두이노와의 시리얼 연결에 실패했습니다. 아두이노가 연결되어 있지 않습니다.")
         return None
 
 # 아두이노로 신호 보내기
@@ -122,15 +122,13 @@ def run_detection(server_url, model_path, class_names, serial_port='/dev/ttyUSB0
     model = load_model(model_path)
     cap = initialize_camera()
     ser = initialize_serial(serial_port, baudrate)
-
-    if ser is None:
-        print("아두이노가 연결되지 않았습니다. 시리얼 통신 없이 실행합니다.")
-
     json_data = fetch_data_from_server(server_url)
     db_list = parse_json_data(json_data)
     object_detected = False
+    CONFIDENCE_THRESHOLD = 0.8  # 신뢰도 임계값 설정
 
     while cap.isOpened():
+        time.sleep(0.5)  # 인식 속도를 줄이기 위해 0.5초 대기
         ret, frame = cap.read()
         if not ret:
             print("캠에서 사진을 가져올 수 없습니다.")
@@ -143,26 +141,30 @@ def run_detection(server_url, model_path, class_names, serial_port='/dev/ttyUSB0
             for box in result.boxes:
                 label = int(box.cls[0])
                 conf = box.conf[0]  # 신뢰도 값 가져와서 정의
-                class_name = class_names[label] if label < len(class_names) else f'Unknown({label})'
-                product = find_product_by_label(db_list, class_name)
 
-                # 제품 정보를 음성으로 출력
-                speak_product_info(product)
+                # 신뢰도가 임계값 이상인 경우에만 제품 정보 출력
+                if conf >= CONFIDENCE_THRESHOLD:
+                    class_name = class_names[label] if label < len(class_names) else f'Unknown({label})'
+                    product = find_product_by_label(db_list, class_name)
 
-                # 아두이노 신호 전송 및 응답 읽기 (아두이노가 연결된 경우에만)
-                if ser is not None:
+                    # 제품 정보를 음성으로 출력
+                    speak_product_info(product)
+
+                    # 아두이노 신호 전송
                     send_signal_to_arduino(ser, '1')
+
+                    # 아두이노 응답 읽기
                     read_from_arduino(ser)
 
-                # 객체가 인식되었으므로 프레임을 이미지로 저장
-                output_filename = f'detected_{class_name}_{conf:.2f}.jpg'
-                cv2.imwrite(output_filename, frame)
-                print(f"인식된 객체 이미지 저장: {output_filename}")
+                    # 객체가 인식되었으므로 프레임을 이미지로 저장
+                    output_filename = f'detected_{class_name}_{conf:.2f}.jpg'
+                    cv2.imwrite(output_filename, frame)
+                    print(f"인식된 객체 이미지 저장: {output_filename}")
 
-                object_detected = True  # 객체가 감지되었음을 표시
+                    object_detected = True  # 객체가 감지되었음을 표시
 
-                # 객체를 감지한 후 반복문 종료
-                break
+                    # 객체를 감지한 후 반복문 종료
+                    break
 
             if object_detected:
                 break
