@@ -5,7 +5,7 @@ import pyttsx3
 import json
 import serial
 import time
-# import winsound
+import winsound
 
 # conf 신뢰도가 90% 이상일 때만 object_detected 변수를 True로 설정 
 # serial.py 코드를 함수화 + 이전 코드와 합치기
@@ -53,7 +53,6 @@ def fetch_data_from_server(server_url):
 def parse_json_data(json_string):
     try:
         data = json.loads(json_string)
-        # print("받은 데이터:", data)  전체 데이터 출력 (디버깅용)
         
         if 'test' in data and isinstance(data['test'], list):
             for item in data['test']:
@@ -64,8 +63,6 @@ def parse_json_data(json_string):
                     dbData.set_member_maker(item.get('maker', 'unknown'))
                     dbData.set_member_recipe(item.get('recipe', 'unknown'))
                     db_list.append(dbData)
-                    
-                    # print(f"Added data: {item.get('rabel', 'unknown')}, {item.get('name', 'unknown')}, {item.get('maker', 'unknown')}, {item.get('recipe', 'unknown')}")
             print(f"데이터 파싱 성공: {len(db_list)}개 항목 추가됨")
         else:
             print("'test' 키가 없거나 배열이 아닙니다.")
@@ -96,7 +93,7 @@ def speak_product_info(product, speed=200):
     engine.runAndWait()
 
 # 시리얼 통신 초기화
-def setup_serial(port='COM9',baudrate=9600):
+def setup_serial(port='COM9', baudrate=9600):
     try:
         py_serial = serial.Serial(port=port, baudrate=baudrate, timeout=1)
         print("시리얼 포트 연결 성공")
@@ -107,7 +104,7 @@ def setup_serial(port='COM9',baudrate=9600):
     
 # 목표 무게 도달하면 음성 안내 함수
 def reach_weight():
-    # winsound.Beep(1000, 500)  # 1000 Hz, 0.5초 길이의 삐 소리
+    winsound.Beep(1000, 500)  # 1000 Hz, 0.5초 길이의 삐 소리
     engine = pyttsx3.init()
     engine.say("목표 무게에 도달했습니다.")
     engine.runAndWait()
@@ -183,9 +180,9 @@ def detect_and_announce(server_url, model_path, serial_port):
                 product = find_product_by_label(class_name)
 
                 # 바운딩 박스 그리기
-                cv2.rectangle(frame, (x1, y1), (x2, y2), (0, 255, 0), 2)
+                cv2.rectangle(frame, (x1, y1), (x2, y2), (0, 0, 255), 2)
                 # 라벨과 신뢰도 표시
-                cv2.putText(frame, f'Label: {class_name}, Conf: {conf:.2f}', (x1, y1 - 10), cv2.FONT_HERSHEY_SIMPLEX, 0.9, (0, 255, 0), 2)
+                cv2.putText(frame, f'Label: {class_name}, Conf: {conf:.2f}', (x1, y1 - 10), cv2.FONT_HERSHEY_SIMPLEX, 0.9, (0, 0, 255), 2)
 
                 # 제품 정보를 음성으로 출력
                 speak_product_info(product)
@@ -203,25 +200,6 @@ def detect_and_announce(server_url, model_path, serial_port):
             if object_detected:
                 break
 
-        # 객체 감지 후 종료
-        if object_detected:
-            print("객체를 인식했습니다.")
-            
-            weight = input("목표 무게를 입력하세요 (g): ") # 무게 입력 받기 or 특정 무게 고정
-            try:
-                target_weight = float(weight)
-                monitor_weight(serial_port, target_weight)
-            except ValueError:
-                print("유효한 무게를 입력하세요.")
-
-            response = input("프로그램을 종료하시겠습니까? (y/n): ")
-            if response.lower() == 'y':
-                print("프로그램을 종료합니다.")
-                break
-            else:
-                print("프로그램을 계속 실행합니다.")
-                object_detected = False
-
         # 결과 프레임을 화면에 표시
         cv2.imshow('컵라면 인식', frame)
         
@@ -229,8 +207,8 @@ def detect_and_announce(server_url, model_path, serial_port):
         if cv2.waitKey(1) & 0xFF == ord('q'):
             break
 
-        # 인식 속도를 줄이기 위해 대기 시간 추가
-        time.sleep(0.5)  # 0.5초 대기
+        # 인식 속도 줄이기 위해 대기 시간 추가
+        time.sleep(0.5)  # 0.5초 대기 추가
 
     # 자원 해제
     cap.release()
@@ -243,4 +221,5 @@ if __name__ == "__main__":
     model_path = 'best.pt'
     serial_port = setup_serial(port='COM9', baudrate=9600)
 
-    # 컵라면 인식, 제품 정보 안내,
+    # 컵라면 인식, 제품 정보 안내, 무게 측정 실행
+    detect_and_announce(server_url, model_path, serial_port)
