@@ -3,12 +3,17 @@ from ultralytics import YOLO
 import requests
 import pyttsx3
 import json
+import serial
+import time
+import winsound
 
-from db_tts import DBData
 
-# 데이터 파싱 과정에서 디버깅을 위한 문자열 출력 삭제
-# 객체인식 후 tts음성 안내가 끝나면 자동 종료 코드 추가
-# 객체인식 결과를 이미지로 저장하는 코드 추가
+# 포트 닫기
+
+# conf 신뢰도가 90% 이상일 때만 object_detected 변수를 True로 설정 
+# serial.py 코드를 함수화 + 이전 코드와 합치기
+# 라면 객체 인식을 성공하면 무게를 입력(or 특정무게 디폴트 설정 500g)받고
+# 목표 무게 도달 시 삐 소리 후 tts 음성 안내 코드 추가
 
 # YOLO 모델 불러오기 함수
 def load_yolo_model(model_path):
@@ -93,6 +98,49 @@ def speak_product_info(product, speed=200):
     engine.say(text)
     engine.runAndWait()
 
+# 시리얼 통신 초기화
+def setup_serial(port='COM9', baudrate=9600):
+    try:
+        py_serial = serial.Serial(port=port, baudrate=baudrate, timeout=1)
+        print("시리얼 포트 연결 성공")
+        return py_serial
+    except Exception as e:
+        print(f"시리얼 포트 연결 중 오류 발생: {e}")
+        return None
+
+    
+# 목표 무게 도달하면 음성 안내 함수
+def reach_weight():
+    winsound.Beep(1000, 500)  # 1000 Hz, 0.5초 길이의 삐 소리
+    engine = pyttsx3.init()
+    engine.say("목표 무게에 도달했습니다.")
+    engine.runAndWait()
+
+# 목표 무게 실시간 확인 함수
+# monitor_weight 함수에서 대기 시간을 줄임
+def monitor_weight(py_serial, target_weight):
+    while True:
+        if py_serial.in_waiting > 0:
+            weight_data = py_serial.readline().decode().strip()
+            print(f"Raw data received: {weight_data}")
+
+            try:
+                if weight_data.startswith("Weight: "):
+                    current_weight = float(weight_data.split("Weight: ")[1].split(" ")[0])
+                    print(f"현재 무게: {current_weight} g")
+
+                    if current_weight >= target_weight:
+                        print("목표 무게에 도달했습니다.")
+                        reach_weight()
+                        break
+                else:
+                    print("유효하지 않은 무게 데이터 수신")
+            except ValueError:
+                print("유효하지 않은 무게 데이터 수신")
+        time.sleep(0.1)  # 데이터를 0.1초마다 확인
+
+
+
 # 클래스명 리스트 (32개의 클래스명)
 class_names = ['buldak', 'buldak4Cheese', 'buldakCarbo', 'buldakSoup',
                'buldakSoup2', 'carboSoup', 'carboSoup2', 'cheeseSoup',
@@ -103,7 +151,10 @@ class_names = ['buldak', 'buldak4Cheese', 'buldakCarbo', 'buldakSoup',
                'wang', 'wangSoup', 'wangSoup2']
 
 # YOLO 모델을 이용해 컵라면 인식 및 제품 정보 출력 함수
-def detect_and_announce(server_url, model_path):
+def detect_and_announce(server_url, model_path, serial_port):
+    if serial_port is None:
+        print("시리얼 포트에 연결되지 않았습니다. 프로그램을 종료합니다.")
+        return
     # YOLO 모델 로드
     model = load_yolo_model(model_path)
 
@@ -136,6 +187,9 @@ def detect_and_announce(server_url, model_path):
                 x1, y1, x2, y2 = map(int, box.xyxy[0].tolist())
                 conf = box.conf[0]
                 label = int(box.cls[0])  # YOLO 모델에서 추출한 라벨
+                
+                if conf < 0.90: # conf 정확도가 90% 미만이면 객체 인식 다시수행
+                    continue
 
                 # 라벨에 맞는 클래스명
                 class_name = class_names[label] if label < len(class_names) else f'Unknown({label})'
@@ -166,8 +220,22 @@ def detect_and_announce(server_url, model_path):
 
         # 객체 감지 후 종료
         if object_detected:
-            print("객체를 인식했습니다. 프로그램을 종료합니다.")
-            break
+            print("객체를 인식했습니다.")
+            
+            weight = input("목표 무게를 입력하세요 (g): ") # 무게 입력 받기 or 특정 무게 고정
+            try:
+                target_weight = float(weight)
+                monitor_weight(serial_port, target_weight)
+            except ValueError:
+                print("유효한 무게를 입력하세요.")
+
+            response = input("프로그램을 종료하시겠습니까? (y/n): ")
+            if response.lower() == 'y':
+                print("프로그램을 종료합니다.")
+                break
+            else:
+                print("프로그램을 계속 실행합니다.")
+                object_detected = False
 
         # 결과 프레임을 화면에 표시
         cv2.imshow('컵라면 인식', frame)
@@ -185,6 +253,10 @@ if __name__ == "__main__":
     # DB 서버 URL과 모델 경로 설정
     server_url = "http://43.203.182.200/getjson.php"
     model_path = 'best.pt'
+    serial_port = setup_serial(port='COM9', baudrate=9600)
 
-    # 컵라면 인식 및 제품 정보 안내 실행
-    detect_and_announce(server_url, model_path)
+    if serial_port:
+        # 컵라면 인식, 제품 정보 안내, 무게 측정 실행
+        detect_and_announce(server_url, model_path, serial_port)
+    else:
+        print("시리얼 포트 연결에 실패하여 프로그램을 종료합니다.")

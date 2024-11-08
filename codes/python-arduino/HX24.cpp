@@ -1,4 +1,4 @@
-#include "HX24.h"
+#include "hx24.h"
 
 unsigned long HX24_Buffer = 0;
 unsigned long Weight_M = 0,Weight_S = 0;
@@ -45,14 +45,16 @@ unsigned int Get_Weight()
 			//+0.05 Percentile to rounding
 	}
 
-	//if(Weight_S > 3000 || HX24_Buffer < Weight_M - 30)
-	//{
-	//	Flag_Error = 1;
-	//	Serial.print("Error\n");
-	//}
-
-	Flag_Error = 0;	
-
+	// 오류 조건 확인 및 플래그 설정
+   	if (Weight_S > 3000 || HX24_Buffer < Weight_M - 30) {
+        Flag_Error = 1;
+        // 아래 줄을 주석 처리하여 시리얼 출력에서 "Error" 메시지를 제거합니다.
+        // Serial.print("Error");
+	}
+	else
+	{
+		Flag_Error = 0;	
+	}	
 	return Weight_S;
 }
 
