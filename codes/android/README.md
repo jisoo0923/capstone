@@ -109,7 +109,7 @@ implementation("com.squareup.okhttp3:okhttp:4.9.1")
             engine.runAndWait()
         ```
   - 수정 후
-        ```py
+    ```py
         def speak_product_info(product, speed=200):
             engine = pyttsx3.init()
             engine.setProperty('rate', speed)  # 음성 속도 조절
@@ -119,4 +119,4 @@ implementation("com.squareup.okhttp3:okhttp:4.9.1")
                 text = "해당 라벨의 제품을 찾을 수 없습니다."  # 오류 메시지
             engine.say(text)
             engine.runAndWait()
-        ```
+    ```
