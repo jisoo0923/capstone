@@ -1,0 +1,2 @@
+<!-- 인터넷 권한 추가 -->
+    <uses-permission android:name="android.permission.INTERNET" />
