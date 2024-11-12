@@ -67,7 +67,7 @@ implementation("com.squareup.okhttp3:okhttp:4.9.1")
             time.sleep(0.1)
         ```
   - 수정 후
-        ```py
+    ```py
         def monitor_weight_with_pump(py_serial, target_weight):
             motor_on = False
             while True:
