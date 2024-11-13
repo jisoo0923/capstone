@@ -17,12 +17,14 @@
     <!-- 캡처 버튼 -->
     <Button
         android:id="@+id/captureButton"
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
+        android:layout_width="match_parent"
+        android:layout_height="150dp"
         android:layout_below="@id/imageView"
         android:layout_centerHorizontal="true"
         android:layout_marginTop="16dp"
-        android:text="사진 촬영" />
+        android:text="사진 촬영"
+        android:textSize="70sp"
+        android:backgroundTint="@android:color/holo_blue_dark" />
 
     <!-- 라면 정보 출력 TextView -->
     <TextView
@@ -31,9 +33,11 @@
         android:layout_height="wrap_content"
         android:layout_below="@id/captureButton"
         android:layout_centerHorizontal="true"
-        android:layout_marginTop="8dp"
+        android:layout_marginTop="16dp"
         android:text="제품명: "
-        android:textSize="16sp" />
+        android:textSize="24sp"
+        android:textStyle="bold"
+        android:textColor="@android:color/black" />
 
     <TextView
         android:id="@+id/textViewMaker"
@@ -41,9 +45,11 @@
         android:layout_height="wrap_content"
         android:layout_below="@id/textViewName"
         android:layout_centerHorizontal="true"
-        android:layout_marginTop="4dp"
+        android:layout_marginTop="8dp"
         android:text="제조사: "
-        android:textSize="16sp" />
+        android:textSize="24sp"
+        android:textStyle="bold"
+        android:textColor="@android:color/black" />
 
     <TextView
         android:id="@+id/textViewRecipe"
@@ -51,8 +57,10 @@
         android:layout_height="wrap_content"
         android:layout_below="@id/textViewMaker"
         android:layout_centerHorizontal="true"
-        android:layout_marginTop="4dp"
+        android:layout_marginTop="8dp"
         android:text="조리법: "
-        android:textSize="16sp" />
+        android:textSize="24sp"
+        android:textStyle="bold"
+        android:textColor="@android:color/black" />
 
 </RelativeLayout>
