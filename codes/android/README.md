@@ -1,3 +1,9 @@
+## 0. 진행상황 정리
+
+### (1)
+### (2)
+
+
 ## 1. strings.xml
 ```xml
 <resources>
