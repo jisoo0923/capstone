@@ -1,14 +1,8 @@
 package com.parkjisoo.ramenrecognitionproject;
 
-import androidx.activity.result.ActivityResultLauncher;
-import androidx.activity.result.contract.ActivityResultContracts;
-import androidx.annotation.NonNull;
+import androidx.annotation.Nullable;
 import androidx.appcompat.app.AppCompatActivity;
-import androidx.core.app.ActivityCompat;
-import androidx.core.content.ContextCompat;
-import android.Manifest;
 import android.content.Intent;
-import android.content.pm.PackageManager;
 import android.graphics.Bitmap;
 import android.os.Bundle;
 import android.provider.MediaStore;
@@ -28,13 +22,10 @@ import okhttp3.Response;
 
 public class MainActivity extends AppCompatActivity {
 
-    private static final int CAMERA_PERMISSION_REQUEST_CODE = 100;
+    private static final int REQUEST_IMAGE_CAPTURE = 1;
     private ImageView imageView;  // 캡처된 이미지 표시할 ImageView
     private TextView textViewName, textViewMaker, textViewRecipe;  // 컵라면 정보 텍스트뷰
     private Bitmap capturedImage;  // 캡처된 이미지 저장할 Bitmap 객체
-
-    // ActivityResultLauncher 선언
-    private ActivityResultLauncher<Intent> takePictureLauncher;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -48,68 +39,33 @@ public class MainActivity extends AppCompatActivity {
         textViewRecipe = findViewById(R.id.textViewRecipe);
         Button captureButton = findViewById(R.id.captureButton);  // 사진 캡처 버튼
 
-        // 권한 요청 메서드 호출
-        requestCameraPermission();
-
         // 사진 캡처 버튼 클릭 리스너 설정
         captureButton.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View v) {
-                if (ContextCompat.checkSelfPermission(MainActivity.this, Manifest.permission.CAMERA) == PackageManager.PERMISSION_GRANTED) {
-                    dispatchTakePictureIntent();  // 권한이 있을 때 카메라 앱 실행
-                } else {
-                    Toast.makeText(MainActivity.this, "카메라 권한이 필요합니다.", Toast.LENGTH_SHORT).show();
-                    requestCameraPermission();  // 권한이 없으면 권한 요청
-                }
+                dispatchTakePictureIntent();  // 카메라 앱 실행하여 사진 촬영
             }
         });
-
-        // ActivityResultLauncher 초기화
-        takePictureLauncher = registerForActivityResult(
-                new ActivityResultContracts.StartActivityForResult(),
-                result -> {
-                    if (result.getResultCode() == RESULT_OK) {
-                        Intent data = result.getData();
-                        if (data != null && data.getExtras() != null) {
-                            // 촬영된 이미지를 번들로부터 가져옴
-                            capturedImage = (Bitmap) data.getExtras().get("data");
-                            imageView.setImageBitmap(capturedImage);  // ImageView에 캡처된 이미지 표시
-
-                            // 사진을 찍은 후 서버에 자동으로 업로드
-                            uploadImageToServer(capturedImage);
-                        }
-                    }
-                }
-        );
-    }
-
-    // 카메라 권한 요청 메서드
-    private void requestCameraPermission() {
-        if (ContextCompat.checkSelfPermission(this, Manifest.permission.CAMERA) != PackageManager.PERMISSION_GRANTED) {
-            // 권한이 부여되지 않은 경우 권한 요청
-            ActivityCompat.requestPermissions(this, new String[]{Manifest.permission.CAMERA}, CAMERA_PERMISSION_REQUEST_CODE);
-        }
-    }
-
-    @Override
-    public void onRequestPermissionsResult(int requestCode, @NonNull String[] permissions, @NonNull int[] grantResults) {
-        super.onRequestPermissionsResult(requestCode, permissions, grantResults);
-        if (requestCode == CAMERA_PERMISSION_REQUEST_CODE) {
-            if (grantResults.length > 0 && grantResults[0] == PackageManager.PERMISSION_GRANTED) {
-                // 권한이 허용된 경우
-                Toast.makeText(this, "카메라 권한이 허용되었습니다.", Toast.LENGTH_SHORT).show();
-            } else {
-                // 권한이 거부된 경우
-                Toast.makeText(this, "카메라 권한이 필요합니다.", Toast.LENGTH_SHORT).show();
-            }
-        }
     }
 
     // 카메라 앱 실행을 위한 인텐트 생성 및 실행 함수
     private void dispatchTakePictureIntent() {
         Intent takePictureIntent = new Intent(MediaStore.ACTION_IMAGE_CAPTURE);
-        if (takePictureIntent.resolveActivity(getPackageManager()) != null) {
-            takePictureLauncher.launch(takePictureIntent);
+        startActivityForResult(takePictureIntent, REQUEST_IMAGE_CAPTURE);
+    }
+
+    // 사진 촬영 결과 처리 함수
+    @Override
+    protected void onActivityResult(int requestCode, int resultCode, @Nullable Intent data) {
+        super.onActivityResult(requestCode, resultCode, data);
+        if (requestCode == REQUEST_IMAGE_CAPTURE && resultCode == RESULT_OK) {
+            // 촬영된 이미지를 번들로부터 가져옴
+            Bundle extras = data.getExtras();
+            capturedImage = (Bitmap) extras.get("data");
+            imageView.setImageBitmap(capturedImage);  // ImageView에 캡처된 이미지 표시
+
+            // 사진을 찍은 후 서버에 자동으로 업로드
+            uploadImageToServer(capturedImage);
         }
     }
 
@@ -136,7 +92,7 @@ public class MainActivity extends AppCompatActivity {
 
                     // 요청 객체 생성: 서버 URL 설정 및 POST 요청
                     Request request = new Request.Builder()
-                            .url("http://서버주소/upload")  // 서버 주소로 변경 필요
+                            .url("http://192.168.10.101:8080")  // 로컬 서버 주소로 변경 필요
                             .post(requestBody)
                             .build();
 
@@ -144,14 +100,25 @@ public class MainActivity extends AppCompatActivity {
                     Response response = client.newCall(request).execute();
                     if (response.isSuccessful()) {
                         String responseData = response.body().string();
-                        runOnUiThread(() -> parseJsonResponse(responseData));  // UI 스레드에서 응답 처리
+                        runOnUiThread(() -> {
+                            parseJsonResponse(responseData);
+                            Toast.makeText(MainActivity.this, "서버 응답 수신 성공", Toast.LENGTH_SHORT).show();
+                        });  // UI 스레드에서 응답 처리
+                    } else {
+                        runOnUiThread(() -> {
+                            Toast.makeText(MainActivity.this, "서버 응답 실패", Toast.LENGTH_SHORT).show();
+                        });
                     }
                 } catch (Exception e) {
                     e.printStackTrace();  // 예외 발생 시 스택 트레이스 출력
+                    runOnUiThread(() -> {
+                        Toast.makeText(MainActivity.this, "이미지 업로드 중 오류 발생", Toast.LENGTH_SHORT).show();
+                    });
                 }
             }
         }).start();
     }
+
 
     // 서버에서 받은 JSON 응답을 파싱하여 화면에 출력하는 함수
     private void parseJsonResponse(String jsonData) {
