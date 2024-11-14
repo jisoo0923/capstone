@@ -1,7 +1,10 @@
 ## 0. 진행상황 정리
 
-### (1) 안드로이드 => 서버: 이미지 전송 성공
-### (2) 서버 => 안드로이드: 모델 분석결과(제품명, 제조사, 레시피) 실패, 추가 수정필요
+### (1) 안드로이드 -> 서버
+  - 이미지 전송 성공
+### (2) 서버 -> 안드로이드
+  - 모델 분석결과(제품명, 제조사, 레시피) 전송 실패
+      - 추가 수정필요
 
 
 ## 1. strings.xml
@@ -82,5 +85,5 @@ implementation("com.squareup.okhttp3:okhttp:4.9.1")
     ```
   - 안드로이드 실행 시 주의사항
     - `uploadImageToServer()` 메서드 내 서버 URL을 수정하세요.
-    - `network_security_config.xml` 
-
+    - `network_security_config.xml` `<domain>` 태그에서 IP주소 수정하세요.
+    - 'AndroidManifest.xml` 파일 내 `package="com.parkjisoo.ramenrecognitionproject" >` 수정하세요.
