@@ -1,5 +1,3 @@
-package com.parkjisoo.ramenrecognitionproject;
-
 import androidx.annotation.Nullable;
 import androidx.appcompat.app.AppCompatActivity;
 import android.content.Intent;
@@ -92,7 +90,7 @@ public class MainActivity extends AppCompatActivity {
 
                     // 요청 객체 생성: 서버 URL 설정 및 POST 요청
                     Request request = new Request.Builder()
-                            .url("http://192.168.10.101:8080")  // 로컬 서버 주소로 변경 필요
+                            .url("http://192.168.101.3:50505")  // 로컬 서버 주소로 변경 필요
                             .post(requestBody)
                             .build();
 
