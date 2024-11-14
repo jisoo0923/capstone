@@ -83,7 +83,11 @@ implementation("com.squareup.okhttp3:okhttp:4.9.1")
         </manifest>
 
     ```
+
   - 안드로이드 실행 시 주의사항
     - `uploadImageToServer()` 메서드 내 서버 URL을 수정하세요.
     - `network_security_config.xml` `<domain>` 태그에서 IP주소 수정하세요.
     - 'AndroidManifest.xml` 파일 내 `package="com.parkjisoo.ramenrecognitionproject" >` 수정하세요.
+    - 설치 목록
+      `pip install Flask-CORS` 또는 `pip3 install Flask-CORS`
+
