@@ -1,3 +1,5 @@
+package com.parkjisoo.ramenrecognitionproject;
+
 import androidx.annotation.Nullable;
 import androidx.appcompat.app.AppCompatActivity;
 import android.content.Intent;
@@ -117,21 +119,50 @@ public class MainActivity extends AppCompatActivity {
         }).start();
     }
 
-
     // 서버에서 받은 JSON 응답을 파싱하여 화면에 출력하는 함수
     private void parseJsonResponse(String jsonData) {
         Gson gson = new Gson();
-        CupRamenInfo cupRamenInfo = gson.fromJson(jsonData, CupRamenInfo.class);
+        ServerResponse response = gson.fromJson(jsonData, ServerResponse.class);
 
-        // 파싱된 데이터를 TextView에 설정
-        textViewName.setText("제품명: " + cupRamenInfo.getName());
-        textViewMaker.setText("제조사: " + cupRamenInfo.getMaker());
-        textViewRecipe.setText("조리법: " + cupRamenInfo.getRecipe());
+        if (response != null && "success".equals(response.getStatus())) {
+            ProductInfo productInfo = response.getProductInfo();
+            if (productInfo != null) {
+                textViewName.setText("제품명: " + productInfo.getName());
+                textViewMaker.setText("제조사: " + productInfo.getMaker());
+                textViewRecipe.setText("조리법: " + productInfo.getRecipe());
+            } else {
+                textViewName.setText("제품 정보를 찾을 수 없습니다.");
+                textViewMaker.setText("");
+                textViewRecipe.setText("");
+            }
+        } else {
+            textViewName.setText("서버 응답 실패: " + (response != null ? response.getMessage() : "알 수 없는 오류"));
+            textViewMaker.setText("");
+            textViewRecipe.setText("");
+        }
     }
 
-    // 컵라면 정보 클래스: 서버에서 받은 JSON 데이터를 매핑하기 위한 클래스
-    public class CupRamenInfo {
-        private String label;
+    // 서버 응답 클래스: JSON 응답을 매핑하기 위한 클래스
+    public class ServerResponse {
+        private String status;
+        private String message;
+        private ProductInfo product_info;
+
+        public String getStatus() {
+            return status;
+        }
+
+        public String getMessage() {
+            return message;
+        }
+
+        public ProductInfo getProductInfo() {
+            return product_info;
+        }
+    }
+
+    // 제품 정보 클래스: 서버에서 받은 JSON 데이터를 매핑하기 위한 클래스
+    public class ProductInfo {
         private String name;
         private String maker;
         private String recipe;
