@@ -20,9 +20,10 @@ implementation("com.squareup.okhttp3:okhttp:4.9.1")
 
 ## 3. 서버 코드 수정
 
-### (1). 안드로이드 -> 서버 이미지 업로드 관련
-    - 네트워크 보안 정책 수정
-        - res/xml 폴더에 `network_security_config.xml` 파일 생성 후 코드 추가
+### (1) 안드로이드 -> 서버 이미지 업로드 관련
+- 네트워크 보안 정책 수정
+  - res/xml 폴더에 network_security_config.xml 파일 생성 후 코드 추가
+        
             ```xml
                 <?xml version="1.0" encoding="utf-8"?>
                 <network-security-config>
@@ -31,7 +32,9 @@ implementation("com.squareup.okhttp3:okhttp:4.9.1")
                     </domain-config>
                 </network-security-config>
             ```
-        - `AndroidManifest.xml`에 설정 추가
+            
+  - AndroidManifest.xml에 설정 추가
+        
             ```xml
                 <application
                     ...
