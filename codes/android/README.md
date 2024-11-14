@@ -80,3 +80,7 @@ implementation("com.squareup.okhttp3:okhttp:4.9.1")
         </manifest>
 
     ```
+  - 안드로이드 실행 시 주의사항
+    - `uploadImageToServer()` 메서드 내 서버 URL을 수정하세요.
+    - `network_security_config.xml` 
+
