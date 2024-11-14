@@ -41,4 +41,4 @@ def upload():
         return {"status": "fail", "message": "서버 처리 중 오류 발생"}
 
 if __name__ == '__main__':
-    app.run(host='0.0.0.0', port=8080)
+    app.run(host='0.0.0.0', port=50505)
