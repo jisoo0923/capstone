@@ -26,7 +26,7 @@ implementation("com.squareup.okhttp3:okhttp:4.9.1")
 
 ## 3. 서버 코드 수정
 
-### (1) 안드로이드 -> 서버 이미지 업로드 관련
+### (1) 안드로이드 -> 서버 이미지 업로드 관련(HTTP 통신)
 - 네트워크 보안 정책 수정
   - res/xml 폴더에 network_security_config.xml 파일 생성 후 코드 추가
       ```xml
@@ -36,14 +36,47 @@ implementation("com.squareup.okhttp3:okhttp:4.9.1")
                       <!-- 서버 주소는 변경 필요 -->
                       <domain includeSubdomains="true">192.168.35.61</domain>
                   </domain-config>
+                  <base-config cleartextTrafficPermitted="true" />
               </network-security-config>
       ```
             
   - AndroidManifest.xml에 설정 추가   
     ```xml
-        <application
-            ...
-            android:networkSecurityConfig="@xml/network_security_config">
-            ...
-        </application>
+        <?xml version="1.0" encoding="utf-8"?>
+        <manifest xmlns:android="http://schemas.android.com/apk/res/android"
+            xmlns:tools="http://schemas.android.com/tools"
+            package="com.parkjisoo.ramenrecognitionproject" >
+
+            <!-- 필수 권한 설정 -->
+            <uses-permission android:name="android.permission.INTERNET" />
+            <uses-permission android:name="android.permission.CAMERA" />
+            <uses-feature android:name="android.hardware.camera" android:required="true" />
+
+            <application
+                android:allowBackup="true"
+                android:dataExtractionRules="@xml/data_extraction_rules"
+                android:fullBackupContent="@xml/backup_rules"
+                android:icon="@mipmap/ic_launcher"
+                android:label="@string/app_name"
+                android:roundIcon="@mipmap/ic_launcher_round"
+                android:supportsRtl="true"
+                android:theme="@style/Theme.RamenRecognitionProject"
+                tools:targetApi="31"
+
+                android:networkSecurityConfig="@xml/network_security_config"
+                android:usesCleartextTraffic="true">
+        
+                <activity
+                    android:name=".MainActivity"
+                    android:exported="true">
+                    <intent-filter>
+                        <action android:name="android.intent.action.MAIN" />
+                        <category android:name="android.intent.category.LAUNCHER" />
+                    </intent-filter>
+                </activity>
+
+            </application>
+
+        </manifest>
+
     ```
