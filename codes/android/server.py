@@ -1,35 +1,44 @@
 from flask import Flask, request, jsonify
 from PIL import Image
 import io
-import os
+from ultralytics import YOLO
 
+# Flask 앱 초기화
 app = Flask(__name__)
 
-UPLOAD_FOLDER = './uploads'
-if not os.path.exists(UPLOAD_FOLDER):
-    os.makedirs(UPLOAD_FOLDER)
+# YOLO 모델 로드
+model = YOLO('best.pt')
 
-@app.route('/upload', methods=['POST'])
-def upload_image():
-    if 'image' not in request.files:
-        return jsonify({"error": "No image file provided"}), 400
+print("서버가 시작되었습니다...")
 
-    image_file = request.files['image']
-    if image_file.filename == '':
-        return jsonify({"error": "No selected file"}), 400
-
+@app.route('/', methods=['POST'])
+def upload():
     try:
-        # 이미지 파일을 열고 저장합니다.
-        image = Image.open(image_file.stream)
-        save_path = os.path.join(UPLOAD_FOLDER, image_file.filename)
-        image.save(save_path)
-        print(f"이미지 저장 완료: {save_path}")
-        
-        # 이미지 처리 후 결과 반환하는 예제
-        result = {"message": "Image received successfully", "filename": image_file.filename}
-        return jsonify(result), 200
+        # 이미지 파일 수신
+        file = request.files['image']
+        if file:
+            # 이미지를 열어서 저장
+            image = Image.open(io.BytesIO(file.read()))
+            image.save("received_image.jpg")
+            print("이미지 저장 완료")
+
+            # YOLO 모델을 이용해 이미지 분석
+            results = model(image)
+            labels = []
+            for result in results:
+                for box in result.boxes:
+                    labels.append(result.names[int(box.cls[0])])
+
+            # 인식된 라벨을 JSON 형태로 반환
+            response = {"status": "success", "labels": labels}
+            print(f"응답 데이터: {response}")
+            return jsonify(response)
+        else:
+            print("이미지가 업로드되지 않았습니다.")
+            return {"status": "fail", "message": "No image uploaded."}
     except Exception as e:
-        return jsonify({"error": str(e)}), 500
+        print(f"오류 발생: {e}")
+        return {"status": "fail", "message": "서버 처리 중 오류 발생"}
 
 if __name__ == '__main__':
     app.run(host='0.0.0.0', port=8080)
