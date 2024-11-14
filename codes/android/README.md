@@ -27,6 +27,7 @@ implementation("com.squareup.okhttp3:okhttp:4.9.1")
           <?xml version="1.0" encoding="utf-8"?>
               <network-security-config>
                   <domain-config cleartextTrafficPermitted="true">
+                      <!-- 서버 주소는 변경 필요 -->
                       <domain includeSubdomains="true">192.168.35.61</domain>
                   </domain-config>
               </network-security-config>
