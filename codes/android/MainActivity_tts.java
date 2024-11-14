@@ -1,18 +1,25 @@
-import androidx.annotation.Nullable;
-import androidx.appcompat.app.AppCompatActivity;
+package com.parkjisoo.ramenrecognitionproject;
+
 import android.content.Intent;
 import android.graphics.Bitmap;
 import android.os.Bundle;
 import android.provider.MediaStore;
 import android.speech.tts.TextToSpeech;
+import android.speech.tts.TextToSpeech.OnInitListener;
 import android.view.View;
 import android.widget.Button;
 import android.widget.ImageView;
 import android.widget.TextView;
 import android.widget.Toast;
+
+import androidx.annotation.Nullable;
+import androidx.appcompat.app.AppCompatActivity;
+
 import com.google.gson.Gson;
+
 import java.io.ByteArrayOutputStream;
 import java.util.Locale;
+
 import okhttp3.MediaType;
 import okhttp3.MultipartBody;
 import okhttp3.OkHttpClient;
@@ -20,13 +27,13 @@ import okhttp3.Request;
 import okhttp3.RequestBody;
 import okhttp3.Response;
 
-public class MainActivity extends AppCompatActivity implements TextToSpeech.OnInitListener {
+public class MainActivity extends AppCompatActivity implements OnInitListener {
 
     private static final int REQUEST_IMAGE_CAPTURE = 1;
-    private ImageView imageView;
-    private TextView textViewName, textViewMaker, textViewRecipe;
-    private Bitmap capturedImage;
-    private TextToSpeech textToSpeech; // TTS 객체 추가
+    private ImageView imageView;  // 캡처된 이미지 표시할 ImageView
+    private TextView textViewName, textViewMaker, textViewRecipe;  // 컵라면 정보 텍스트뷰
+    private Bitmap capturedImage;  // 캡처된 이미지 저장할 Bitmap 객체
+    private TextToSpeech textToSpeech;  // TTS 객체
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -38,40 +45,31 @@ public class MainActivity extends AppCompatActivity implements TextToSpeech.OnIn
         textViewName = findViewById(R.id.textViewName);
         textViewMaker = findViewById(R.id.textViewMaker);
         textViewRecipe = findViewById(R.id.textViewRecipe);
-        Button captureButton = findViewById(R.id.captureButton);
+        Button captureButton = findViewById(R.id.captureButton);  // 사진 캡처 버튼
+
+        // TTS 초기화
+        textToSpeech = new TextToSpeech(this, this);
 
         // 사진 캡처 버튼 클릭 리스너 설정
         captureButton.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View v) {
-                dispatchTakePictureIntent();
+                dispatchTakePictureIntent();  // 카메라 앱 실행하여 사진 촬영
             }
         });
-
-        // TTS 객체 초기화
-        textToSpeech = new TextToSpeech(this, this);
     }
 
+    // TTS 초기화 완료 후 호출되는 콜백
     @Override
     public void onInit(int status) {
         if (status == TextToSpeech.SUCCESS) {
-            int result = textToSpeech.setLanguage(Locale.KOREAN);
-            if (result == TextToSpeech.LANG_MISSING_DATA || result == TextToSpeech.LANG_NOT_SUPPORTED) {
-                Toast.makeText(this, "TTS 언어 설정 오류", Toast.LENGTH_SHORT).show();
+            int langResult = textToSpeech.setLanguage(Locale.KOREAN);  // 한국어 설정
+            if (langResult == TextToSpeech.LANG_MISSING_DATA || langResult == TextToSpeech.LANG_NOT_SUPPORTED) {
+                Toast.makeText(this, "한국어 TTS가 지원되지 않습니다.", Toast.LENGTH_SHORT).show();
             }
         } else {
             Toast.makeText(this, "TTS 초기화 실패", Toast.LENGTH_SHORT).show();
         }
-    }
-
-    @Override
-    protected void onDestroy() {
-        // TTS 객체 종료 처리
-        if (textToSpeech != null) {
-            textToSpeech.stop();
-            textToSpeech.shutdown();
-        }
-        super.onDestroy();
     }
 
     // 카메라 앱 실행을 위한 인텐트 생성 및 실행 함수
@@ -83,7 +81,7 @@ public class MainActivity extends AppCompatActivity implements TextToSpeech.OnIn
     // 사진 촬영 결과 처리 함수
     @Override
     protected void onActivityResult(int requestCode, int resultCode, @Nullable Intent data) {
-        super.onActivityForResult(requestCode, resultCode, data);
+        super.onActivityResult(requestCode, resultCode, data);
         if (requestCode == REQUEST_IMAGE_CAPTURE && resultCode == RESULT_OK) {
             // 촬영된 이미지를 번들로부터 가져옴
             Bundle extras = data.getExtras();
@@ -129,14 +127,14 @@ public class MainActivity extends AppCompatActivity implements TextToSpeech.OnIn
                         runOnUiThread(() -> {
                             parseJsonResponse(responseData);
                             Toast.makeText(MainActivity.this, "서버 응답 수신 성공", Toast.LENGTH_SHORT).show();
-                        });
+                        });  // UI 스레드에서 응답 처리
                     } else {
                         runOnUiThread(() -> {
                             Toast.makeText(MainActivity.this, "서버 응답 실패", Toast.LENGTH_SHORT).show();
                         });
                     }
                 } catch (Exception e) {
-                    e.printStackTrace();
+                    e.printStackTrace();  // 예외 발생 시 스택 트레이스 출력
                     runOnUiThread(() -> {
                         Toast.makeText(MainActivity.this, "이미지 업로드 중 오류 발생", Toast.LENGTH_SHORT).show();
                     });
@@ -145,24 +143,55 @@ public class MainActivity extends AppCompatActivity implements TextToSpeech.OnIn
         }).start();
     }
 
-    // 서버에서 받은 JSON 응답을 파싱하여 화면에 출력하고 TTS로 안내하는 함수
+    // 서버에서 받은 JSON 응답을 파싱하여 화면에 출력하는 함수
     private void parseJsonResponse(String jsonData) {
         Gson gson = new Gson();
-        CupRamenInfo cupRamenInfo = gson.fromJson(jsonData, CupRamenInfo.class);
+        ServerResponse response = gson.fromJson(jsonData, ServerResponse.class);
 
-        // 파싱된 데이터를 TextView에 설정
-        textViewName.setText("제품명: " + cupRamenInfo.getName());
-        textViewMaker.setText("제조사: " + cupRamenInfo.getMaker());
-        textViewRecipe.setText("조리법: " + cupRamenInfo.getRecipe());
+        if (response != null && "success".equals(response.getStatus())) {
+            ProductInfo productInfo = response.getProductInfo();
+            if (productInfo != null) {
+                // 텍스트 출력
+                textViewName.setText("제품명: " + productInfo.getName());
+                textViewMaker.setText("제조사: " + productInfo.getMaker());
+                textViewRecipe.setText("조리법: " + productInfo.getRecipe());
 
-        // TTS로 안내
-        String speechText = "제품명: " + cupRamenInfo.getName() + ", 제조사: " + cupRamenInfo.getMaker() + ", 조리법: " + cupRamenInfo.getRecipe();
-        textToSpeech.speak(speechText, TextToSpeech.QUEUE_FLUSH, null, null);
+                // TTS로 읽어주기
+                String ttsText = "제품명은 " + productInfo.getName() + ", 제조사는 " + productInfo.getMaker() + ", 조리법은 " + productInfo.getRecipe() + "입니다.";
+                textToSpeech.speak(ttsText, TextToSpeech.QUEUE_FLUSH, null, null);
+            } else {
+                textViewName.setText("제품 정보를 찾을 수 없습니다.");
+                textViewMaker.setText("");
+                textViewRecipe.setText("");
+            }
+        } else {
+            textViewName.setText("서버 응답 실패: " + (response != null ? response.getMessage() : "알 수 없는 오류"));
+            textViewMaker.setText("");
+            textViewRecipe.setText("");
+        }
     }
 
-    // 컵라면 정보 클래스: 서버에서 받은 JSON 데이터를 매핑하기 위한 클래스
-    public class CupRamenInfo {
-        private String label;
+    // 서버 응답 클래스: JSON 응답을 매핑하기 위한 클래스
+    public class ServerResponse {
+        private String status;
+        private String message;
+        private ProductInfo product_info;
+
+        public String getStatus() {
+            return status;
+        }
+
+        public String getMessage() {
+            return message;
+        }
+
+        public ProductInfo getProductInfo() {
+            return product_info;
+        }
+    }
+
+    // 제품 정보 클래스: 서버에서 받은 JSON 데이터를 매핑하기 위한 클래스
+    public class ProductInfo {
         private String name;
         private String maker;
         private String recipe;
@@ -178,5 +207,15 @@ public class MainActivity extends AppCompatActivity implements TextToSpeech.OnIn
         public String getRecipe() {
             return recipe;
         }
+    }
+
+    @Override
+    protected void onDestroy() {
+        // TTS 객체 해제
+        if (textToSpeech != null) {
+            textToSpeech.stop();
+            textToSpeech.shutdown();
+        }
+        super.onDestroy();
     }
 }
