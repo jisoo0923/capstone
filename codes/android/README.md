@@ -23,21 +23,20 @@ implementation("com.squareup.okhttp3:okhttp:4.9.1")
 ### (1) 안드로이드 -> 서버 이미지 업로드 관련
 - 네트워크 보안 정책 수정
   - res/xml 폴더에 network_security_config.xml 파일 생성 후 코드 추가
-        
-            ```xml
-                <?xml version="1.0" encoding="utf-8"?>
-                <network-security-config>
-                    <domain-config cleartextTrafficPermitted="true">
-                        <domain includeSubdomains="true">192.168.35.61</domain>
-                    </domain-config>
-                </network-security-config>
-            ```
+      ```xml
+          <?xml version="1.0" encoding="utf-8"?>
+              <network-security-config>
+                  <domain-config cleartextTrafficPermitted="true">
+                      <domain includeSubdomains="true">192.168.35.61</domain>
+                  </domain-config>
+              </network-security-config>
+      ```
             
-  - AndroidManifest.xml에 설정 추가
-        
-            ```xml
-                <application
-                    ...
-                    android:networkSecurityConfig="@xml/network_security_config">
-                    ...
-                </application>
+  - AndroidManifest.xml에 설정 추가   
+    ```xml
+        <application
+            ...
+            android:networkSecurityConfig="@xml/network_security_config">
+            ...
+        </application>
+    ```
