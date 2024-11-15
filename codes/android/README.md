@@ -9,6 +9,8 @@
   - 결과 이미지
     
       <img width="1008" alt="스크린샷 2024-11-15 오전 10 57 32" src="https://github.com/user-attachments/assets/237e9d66-7062-4398-868f-f02f814025c2">
+      <img width="414" alt="스크린샷 2024-11-15 오전 11 08 20" src="https://github.com/user-attachments/assets/2c090b96-0746-402f-b1f1-e1f9c79976a5">
+
 
 
 - (3) 안드로이드 TTS
