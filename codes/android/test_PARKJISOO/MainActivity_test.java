@@ -1,5 +1,3 @@
-package com.parkjisoo.ramenrecognitionproject;
-
 import android.content.Intent;
 import android.graphics.Bitmap;
 import android.os.Bundle;
