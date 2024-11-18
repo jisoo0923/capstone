@@ -46,6 +46,17 @@
   - ✅ WIFI6
   - ✅ 아름님 핫스팟
 
+- (7) 시리얼 통신 연결 시점 수정
+    - 안드로이드 통신이 끝나고 시리얼 통신 시도
+    - 목표 물의 양 정송 코드 위치 수정(app.run() 밖으로)
+  ```py
+  # 아두이노로 목표 물의 양(volume) 전송
+                        volume = product_info.get('volume', None)
+                        if volume and volume != 'unknown':
+                            send_target_weight(volume)
+                            # 목표 무게 모니터링을 별도의 스레드에서 실행
+                            threading.Thread(target=monitor_weight, args=(volume,)).start()
+  ```
 
 
 <br>
