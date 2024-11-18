@@ -78,7 +78,8 @@ implementation("com.squar3.3.eup.okhttp3:okhttp:4.9.1")
         <?xml version="1.0" encoding="utf-8"?>
         <manifest xmlns:android="http://schemas.android.com/apk/res/android"
             xmlns:tools="http://schemas.android.com/tools"
-            package="com.parkjisoo.ramenrecognitionproject" >
+
+            package="com." >
 
             <!-- 필수 권한 설정 -->
             <uses-permission android:name="android.permission.INTERNET" />
@@ -117,7 +118,6 @@ implementation("com.squar3.3.eup.okhttp3:okhttp:4.9.1")
     - 안드로이드 실행 시 주의사항
       - `uploadImageToServer()` 메서드 내 서버 URL을 수정하세요.
       - `network_security_config.xml` `<domain>` 태그에서 IP주소 수정하세요.
-      - `AndroidManifest.xml` 파일 내 `package="com.parkjisoo.ramenrecognitionproject" >` 수정하세요.
       - 설치 목록
         - `ultralytics`, `pyttsx3`, `opencv-python`, `pyserial`, `requests`, `flask`, `Flask-CORS`
 
