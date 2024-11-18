@@ -51,14 +51,15 @@ def send_target_weight(target_weight):
     else:
         print("Serial port is not open.")
 
-# 목표 무게 도달 시 음성 안내 함수
-def reach_weight():
-    engine = pyttsx3.init()
-    engine.say("목표 무게에 도달했습니다.")
-    engine.runAndWait()
-
 # 목표 무게 실시간 확인 함수 (별도 스레드에서 동작)
 def monitor_weight(target_weight):
+    # target_weight이 문자열인 경우 float로 변환
+    try:
+        target_weight = float(target_weight)
+    except ValueError:
+        print("잘못된 목표 무게 데이터입니다. 숫자로 변환할 수 없습니다.")
+        return
+
     while True:
         if arduino.in_waiting > 0:
             weight_data = arduino.readline().decode().strip()
@@ -71,8 +72,7 @@ def monitor_weight(target_weight):
 
                     if current_weight >= target_weight:
                         print("목표 무게에 도달했습니다.")
-                        reach_weight()
-                        
+
                         # 목표 무게 도달 후 안드로이드에 알림 전송
                         notify_android()
                         break
@@ -81,6 +81,7 @@ def monitor_weight(target_weight):
             except ValueError:
                 print("유효하지 않은 무게 데이터 수신")
         time.sleep(0.1)  # 데이터를 0.1초마다 확인
+
 
 # 안드로이드에 "물을 다 따랐습니다" 알림 전송 함수
 def notify_android():
