@@ -114,7 +114,7 @@ def upload():
                 print(f"찾은 라벨: {label_to_search}")
 
                 # 외부 JSON 데이터 서버에서 정보 가져오기
-                server_url = "http://43.203.182.200/getjson.php"
+                server_url = "http://52.78.208.162/getjson.php"
                 data = fetch_data_from_server(server_url)
 
                 # JSON 데이터에서 라벨에 맞는 제품 정보 찾기
