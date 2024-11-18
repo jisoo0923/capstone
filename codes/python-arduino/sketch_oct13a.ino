@@ -1,4 +1,4 @@
-// 목표무게 계속 유지하도록 펌프 동작하는 코드
+// 목표무게 한번 도달하면 바로 워터펌프 멈추는 코드
 
 // Include Library
 #include <I2C_LCD.h>
@@ -15,6 +15,7 @@ unsigned long Weight_Offset = 0;  // 영점 조정값
 unsigned long requiredWeight = 0; // 목표 무게
 float calibration_factor = 1.1;   // 보정 상수
 bool pumpActivated = false;       // 워터펌프 작동 여부 플래그
+bool targetReached = false;       // 목표 무게 도달 여부 플래그
 unsigned long pumpStartTime = 0;  // 워터펌프 작동 시작 시간
 unsigned long pumpDelay = 2000;   // 워터펌프 지연 시간 (2초)
 bool weightChanged = false;       // 무게가 변경되었는지 플래그
@@ -50,6 +51,7 @@ void loop() {
             Serial.print("Target weight set to: ");
             Serial.println(requiredWeight);
             pumpActivated = false;  // 새로운 목표 무게 설정 시 펌프 초기화
+            targetReached = false;  // 목표 무게 도달 여부 초기화
         } else {
             Serial.println("Invalid target weight received.");
         }
@@ -70,29 +72,30 @@ void loop() {
     Serial.print(Weight);
     Serial.println(" g");
 
-    if (weightChanged && millis() - pumpStartTime >= pumpDelay) {
+    if (!targetReached && weightChanged && millis() - pumpStartTime >= pumpDelay) {
         if (Weight < requiredWeight) {
             digitalWrite(in1, HIGH);
             digitalWrite(in2, LOW);
         } else {
             digitalWrite(in1, LOW);
             digitalWrite(in2, LOW);
+            targetReached = true;  // 목표 무게 도달
+            Serial.println("Target weight reached. Pump stopped.");
         }
         pumpActivated = true;
         weightChanged = false;
     }
 
-    if (Weight >= requiredWeight) {
+    if (targetReached) {
         digitalWrite(in1, LOW);
-        digitalWrite(in2, LOW);
-        pumpActivated = true;
+        digitalWrite(in2, LOW);  // 목표 무게 도달 후 펌프 정지 유지
     }
 
-        // Segment LCD에 현재 무게 출력
-    Write_1621_data(5, 0x00);  // Not Displayed
+    // Segment LCD에 현재 무게 출력
+    Write_1621_data(5, 0x00);
     Write_1621_data(4, 0x00);
     Write_1621_data(3, num[Weight / 1000]);
-    Write_1621_data(2, num[Weight % 1000 / 100] | 0x80);  // 소수점 추가
+    Write_1621_data(2, num[Weight % 1000 / 100] | 0x80);
     Write_1621_data(1, num[Weight % 100 / 10]);
     Write_1621_data(0, num[Weight % 10]);
 
