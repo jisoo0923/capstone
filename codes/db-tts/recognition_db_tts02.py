@@ -150,11 +150,21 @@ class_names = ['buldak', 'buldak4Cheese', 'buldakCarbo', 'buldakSoup',
                'sesameSoup1', 'sesameSoup2', 'sesameSoup3', 'shin', 'shinSoup',
                'wang', 'wangSoup', 'wangSoup2']
 
+# 목표 무게를 아두이노로 전송하는 함수
+def send_target_weight(py_serial, target_weight):
+    if py_serial.is_open:
+        weight_data = f"{target_weight}\n"  # 줄바꿈 문자를 포함하여 전송
+        py_serial.write(weight_data.encode())  # 시리얼로 데이터 전송
+        print(f"Sent target weight: {target_weight}")
+    else:
+        print("Serial port is not open.")
+
 # YOLO 모델을 이용해 컵라면 인식 및 제품 정보 출력 함수
 def detect_and_announce(server_url, model_path, serial_port):
     if serial_port is None:
         print("시리얼 포트에 연결되지 않았습니다. 프로그램을 종료합니다.")
         return
+    
     # YOLO 모델 로드
     model = load_yolo_model(model_path)
 
@@ -222,10 +232,11 @@ def detect_and_announce(server_url, model_path, serial_port):
         if object_detected:
             print("객체를 인식했습니다.")
             
-            weight = input("목표 무게를 입력하세요 (g): ") # 무게 입력 받기 or 특정 무게 고정
+            weight = input("목표 무게를 입력하세요 (g): ")  # 무게 입력 받기 or 특정 무게 고정
             try:
                 target_weight = float(weight)
-                monitor_weight(serial_port, target_weight)
+                send_target_weight(serial_port, target_weight)  # 목표 무게 전송
+                monitor_weight(serial_port, target_weight)  # 무게 모니터링
             except ValueError:
                 print("유효한 무게를 입력하세요.")
 
@@ -243,7 +254,7 @@ def detect_and_announce(server_url, model_path, serial_port):
         # 'q' 키를 누르면 종료
         if cv2.waitKey(1) & 0xFF == ord('q'):
             break
-
+        
     # 자원 해제
     cap.release()
     cv2.destroyAllWindows()
