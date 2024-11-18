@@ -17,18 +17,20 @@ CORS(app)  # CORS 설정 적용
 # YOLO 모델 로드
 model = YOLO('best.pt')
 
-# 시리얼 통신 설정 (아두이노와 연결)
-try:
-    # 시리얼 포트 설정 (OS에 따라 경로 수정 필요)
-    arduino = serial.Serial('/dev/ttyACM0', 9600, timeout=1)  # 리눅스/맥용 예시
-    # Windows에서는 다음과 같이 설정할 수 있음:
-    # arduino = serial.Serial('COM3', 9600, timeout=1)
-    print("시리얼 포트 연결 성공")
-except AttributeError as e:
-    print(f"시리얼 포트 연결 오류 발생: {e}")
-except Exception as e:
-    print(f"예기치 못한 오류 발생: {e}")
+# 아두이노 시리얼 통신 설정 함수 (아두이노와 연결 시도 반복)
+def setup_serial(port='/dev/ttyACM0', baudrate=9600):
+    while True:
+        try:
+            py_serial = serial.Serial(port=port, baudrate=baudrate, timeout=1)
+            print("시리얼 포트 연결 성공")
+            return py_serial
+        except Exception as e:
+            print(f"시리얼 포트 연결 중 오류 발생: {e}")
+            print("시리얼 포트에 연결되지 않았습니다. 5초 후 재시도합니다...")
+            time.sleep(5)  # 5초 대기 후 다시 시도
 
+# 아두이노 연결 설정
+arduino = setup_serial()
 
 # 서버 데이터 가져오기 함수
 def fetch_data_from_server(server_url):
