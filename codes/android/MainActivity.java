@@ -1,18 +1,23 @@
-package com.parkjisoo.ramenrecognitionproject;
-
-import androidx.annotation.Nullable;
-import androidx.appcompat.app.AppCompatActivity;
 import android.content.Intent;
 import android.graphics.Bitmap;
 import android.os.Bundle;
 import android.provider.MediaStore;
+import android.speech.tts.TextToSpeech;
+import android.speech.tts.TextToSpeech.OnInitListener;
 import android.view.View;
 import android.widget.Button;
 import android.widget.ImageView;
 import android.widget.TextView;
 import android.widget.Toast;
+
+import androidx.annotation.Nullable;
+import androidx.appcompat.app.AppCompatActivity;
+
 import com.google.gson.Gson;
+
 import java.io.ByteArrayOutputStream;
+import java.util.Locale;
+
 import okhttp3.MediaType;
 import okhttp3.MultipartBody;
 import okhttp3.OkHttpClient;
@@ -20,12 +25,14 @@ import okhttp3.Request;
 import okhttp3.RequestBody;
 import okhttp3.Response;
 
-public class MainActivity extends AppCompatActivity {
+public class MainActivity extends AppCompatActivity implements OnInitListener {
 
     private static final int REQUEST_IMAGE_CAPTURE = 1;
     private ImageView imageView;  // 캡처된 이미지 표시할 ImageView
     private TextView textViewName, textViewMaker, textViewRecipe;  // 컵라면 정보 텍스트뷰
     private Bitmap capturedImage;  // 캡처된 이미지 저장할 Bitmap 객체
+    private TextToSpeech textToSpeech;  // TTS 객체
+    private OkHttpClient client;  // OkHttpClient 객체
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -39,6 +46,12 @@ public class MainActivity extends AppCompatActivity {
         textViewRecipe = findViewById(R.id.textViewRecipe);
         Button captureButton = findViewById(R.id.captureButton);  // 사진 캡처 버튼
 
+        // TTS 초기화
+        textToSpeech = new TextToSpeech(this, this);
+
+        // OkHttpClient 초기화
+        client = new OkHttpClient();
+
         // 사진 캡처 버튼 클릭 리스너 설정
         captureButton.setOnClickListener(new View.OnClickListener() {
             @Override
@@ -46,6 +59,22 @@ public class MainActivity extends AppCompatActivity {
                 dispatchTakePictureIntent();  // 카메라 앱 실행하여 사진 촬영
             }
         });
+
+        // 목표 무게 도달 확인 함수 호출
+        new Thread(this::checkTargetWeightReached).start();
+    }
+
+    // TTS 초기화 완료 후 호출되는 콜백
+    @Override
+    public void onInit(int status) {
+        if (status == TextToSpeech.SUCCESS) {
+            int langResult = textToSpeech.setLanguage(Locale.KOREAN);  // 한국어 설정
+            if (langResult == TextToSpeech.LANG_MISSING_DATA || langResult == TextToSpeech.LANG_NOT_SUPPORTED) {
+                Toast.makeText(this, "한국어 TTS가 지원되지 않습니다.", Toast.LENGTH_SHORT).show();
+            }
+        } else {
+            Toast.makeText(this, "TTS 초기화 실패", Toast.LENGTH_SHORT).show();
+        }
     }
 
     // 카메라 앱 실행을 위한 인텐트 생성 및 실행 함수
@@ -80,9 +109,6 @@ public class MainActivity extends AppCompatActivity {
                     bitmap.compress(Bitmap.CompressFormat.JPEG, 100, stream);
                     byte[] byteArray = stream.toByteArray();
 
-                    // OkHttpClient 객체 생성
-                    OkHttpClient client = new OkHttpClient();
-
                     // 요청 바디 생성: 이미지 파일을 포함한 멀티파트 요청
                     RequestBody requestBody = new MultipartBody.Builder()
                             .setType(MultipartBody.FORM)
@@ -92,7 +118,7 @@ public class MainActivity extends AppCompatActivity {
 
                     // 요청 객체 생성: 서버 URL 설정 및 POST 요청
                     Request request = new Request.Builder()
-                            .url("http://192.168.101.3:50505")  // 로컬 서버 주소로 변경 필요
+                            .url("http://192.168.101.5:8080")  // 로컬 서버 주소로 변경 필요
                             .post(requestBody)
                             .build();
 
@@ -127,9 +153,18 @@ public class MainActivity extends AppCompatActivity {
         if (response != null && "success".equals(response.getStatus())) {
             ProductInfo productInfo = response.getProductInfo();
             if (productInfo != null) {
+                // 텍스트 출력
+                textViewName.setVisibility(View.VISIBLE);
+                textViewMaker.setVisibility(View.VISIBLE);
+                textViewRecipe.setVisibility(View.VISIBLE);
+
                 textViewName.setText("제품명: " + productInfo.getName());
                 textViewMaker.setText("제조사: " + productInfo.getMaker());
                 textViewRecipe.setText("조리법: " + productInfo.getRecipe());
+
+                // TTS로 읽어주기
+                String ttsText = "제품명은 " + productInfo.getName() + ", 제조사는 " + productInfo.getMaker() + ", 조리법은 " + productInfo.getRecipe();
+                textToSpeech.speak(ttsText, TextToSpeech.QUEUE_FLUSH, null, null);
             } else {
                 textViewName.setText("제품 정보를 찾을 수 없습니다.");
                 textViewMaker.setText("");
@@ -139,6 +174,37 @@ public class MainActivity extends AppCompatActivity {
             textViewName.setText("서버 응답 실패: " + (response != null ? response.getMessage() : "알 수 없는 오류"));
             textViewMaker.setText("");
             textViewRecipe.setText("");
+        }
+    }
+
+    // 목표 무게 도달 확인 함수 (서버로부터 알림 수신)
+    private void checkTargetWeightReached() {
+        try {
+            // 서버에 요청 보내기 (목표 무게 도달 여부 확인)
+            Request request = new Request.Builder()
+                    .url("http://192.168.101.5:8080/check_target_weight")  // 서버에서 목표 무게 도달 여부 확인하는 엔드포인트
+                    .build();
+
+            while (true) {
+                Response response = client.newCall(request).execute();
+                if (response.isSuccessful()) {
+                    String responseData = response.body().string();
+                    ServerResponse serverResponse = new Gson().fromJson(responseData, ServerResponse.class);
+
+                    if (serverResponse != null && "success".equals(serverResponse.getStatus())) {
+                        // 목표 무게에 도달했음을 확인한 경우
+                        runOnUiThread(() -> {
+                            Toast.makeText(MainActivity.this, "목표 무게에 도달했습니다.", Toast.LENGTH_SHORT).show();
+                            textToSpeech.speak("물을 다 부었습니다.", TextToSpeech.QUEUE_FLUSH, null, null);
+                        });
+                        break;
+                    }
+                }
+                Thread.sleep(5000);  // 5초마다 확인
+            }
+        } catch (Exception e) {
+            e.printStackTrace();
+            runOnUiThread(() -> Toast.makeText(MainActivity.this, "목표 무게 확인 중 오류 발생", Toast.LENGTH_SHORT).show());
         }
     }
 
@@ -178,5 +244,15 @@ public class MainActivity extends AppCompatActivity {
         public String getRecipe() {
             return recipe;
         }
+    }
+
+    @Override
+    protected void onDestroy() {
+        // TTS 객체 해제
+        if (textToSpeech != null) {
+            textToSpeech.stop();
+            textToSpeech.shutdown();
+        }
+        super.onDestroy();
     }
 }
